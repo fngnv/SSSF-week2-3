@@ -1,22 +1,8 @@
-// create the following functions:
-// - userGet - get user by id --done
-// - userListGet - get all users --done
-// - userPost - create new user. Remember to hash password --done
-// - userPutCurrent - update current user --done?
-// - userDeleteCurrent - delete current user --done
-// - checkToken - check if current user token is valid: return data from res.locals.user as UserOutput. No need for database query --done?
 import bcrypt from 'bcryptjs';
 import {User, UserOutput} from '../../types/DBTypes';
-import {
-  MessageResponse,
-  ErrorResponse,
-  LoginResponse,
-  UploadResponse,
-} from '../../types/MessageTypes';
 import CustomError from '../../classes/CustomError';
 import {NextFunction, Request, Response} from 'express';
 import userModel from '../models/userModel';
-import {use} from 'passport';
 const salt = bcrypt.genSaltSync(12);
 
 const userGet = async (

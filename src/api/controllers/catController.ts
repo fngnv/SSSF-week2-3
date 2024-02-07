@@ -1,4 +1,3 @@
-import {Types} from 'mongoose';
 // TODO: create following functions:
 // - catGetByUser - get all cats by current user id
 // - catGetByBoundingBox - get all cats by bounding box coordinates (getJSON)
@@ -9,13 +8,7 @@ import {Types} from 'mongoose';
 // - catGet - get cat by id --done
 // - catListGet - get all cats --done
 // - catPost - create new cat --done
-import {LoginUser, User} from '../../types/DBTypes';
-import {
-  MessageResponse,
-  ErrorResponse,
-  LoginResponse,
-  UploadResponse,
-} from '../../types/MessageTypes';
+import {User} from '../../types/DBTypes';
 import {NextFunction, Request, Response} from 'express';
 import catModel from '../models/catModel';
 import {Cat} from '../../types/DBTypes';
@@ -67,29 +60,11 @@ const catPost = async (
   next: NextFunction
 ) => {
   try {
-    if (req.body.location) {
-      req.body.location = {
-        coordinates: res.locals.coords,
-        type: 'Point',
-      };
-    } else {
-      req.body.location = {
-        coordinates: res.locals.coords,
-        type: 'Point',
-      };
+    if (!req.body.location) {
+      req.body.location = res.locals.coords;
     }
     req.body.owner = res.locals.user._id;
     const cat = await catModel.create(req.body);
-    console.log('ITS A CAT IN CATPOST!!!' + cat);
-    /* req.body.location = {
-      coordinates: [
-        Number(req.body.location.coordinates[0]), // make sure it's a number
-        Number(req.body.location.coordinates[1]),
-      ],
-      type: 'Point',
-    };
-    req.body.owner = res.locals.user._id;
-    const cat = await catModel.create(req.body); */
     res.status(200).json({message: 'Cat created', data: cat});
   } catch (err) {
     next(err);
@@ -98,17 +73,14 @@ const catPost = async (
 
 const catPut = async (
   req: Request<{id: string}, {}, Omit<Cat, '_id'>>,
-  res: Response<UploadResponse>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
     if (req.user && (req.user as User)._id !== (req.body as Cat).owner) {
       throw new CustomError('Access restricted', 403);
     }
-    req.body.location = {
-      ...req.body.location,
-      type: 'Point',
-    };
+    req.body.location = res.locals.coords;
     const cat = await catModel
       .findByIdAndUpdate(req.params.id, req.body, {
         new: true,
@@ -117,7 +89,7 @@ const catPut = async (
     if (!cat) {
       throw new CustomError('Cat not found', 404);
     }
-    res.json({message: 'Cat updated', id: cat._id});
+    res.json({message: 'Cat updated', data: cat});
   } catch (err) {
     next(err);
   }
@@ -125,7 +97,7 @@ const catPut = async (
 
 const catDelete = async (
   req: Request<{id: string}>,
-  res: Response<UploadResponse, {user: LoginUser}>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
@@ -137,17 +109,7 @@ const catDelete = async (
     if (!cat) {
       throw new CustomError('Cat not found', 404);
     }
-    res.json({message: 'Cat deleted', id: cat._id});
-    /* if (req.user && (req.user as User)._id !== (req.body as Cat).owner) {
-      throw new CustomError('Access restricted', 403);
-    }
-    const cat = (await catModel.findByIdAndDelete(
-      req.params.id
-    )) as unknown as Cat;
-    if (!cat) {
-      throw new CustomError('Cat not found', 404);
-    }
-    res.json({message: 'Cat deleted', id: cat._id}); */
+    res.json({message: 'Cat deleted', data: cat});
   } catch (err) {
     next(err);
   }
@@ -155,7 +117,7 @@ const catDelete = async (
 
 const catDeleteAdmin = async (
   req: Request<{id: string}>,
-  res: Response<UploadResponse, {user: LoginUser}>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
@@ -168,7 +130,7 @@ const catDeleteAdmin = async (
     if (!cat) {
       throw new CustomError('Cat not found', 404);
     }
-    res.json({message: 'Cat deleted', id: cat._id});
+    res.json({message: 'Cat deleted', data: cat});
   } catch (err) {
     next(err);
   }
@@ -176,23 +138,21 @@ const catDeleteAdmin = async (
 
 const catPutAdmin = async (
   req: Request<{id: string}, {}, Omit<Cat, '_id'>>,
-  res: Response<UploadResponse>,
+  res: Response,
   next: NextFunction
 ) => {
   try {
     if (req.user && (req.user as User).role !== 'admin') {
       throw new CustomError('Access restricted', 403);
     }
-    req.body.location = {
-      ...req.body.location,
-      type: 'Point',
-    };
+    req.body.location = res.locals.coords;
     const cat = await catModel
       .findByIdAndUpdate(req.params.id, req.body, {new: true})
       .select('-__v');
     if (!cat) {
       throw new CustomError('Cat not found', 404);
     }
+    res.json({message: 'Cat updated', data: cat});
   } catch (err) {
     next(err);
   }
@@ -221,18 +181,24 @@ const catGetByBoundingBox = async (
 ) => {
   try {
     const {topRight, bottomLeft} = req.query;
-    const rightCorner = topRight.split(',');
-    const leftCorner = bottomLeft.split(',');
+    const [rightCorner1, rightCorner2] = topRight.split(',');
+    const [leftCorner1, leftCorner2] = bottomLeft.split(',');
+    console.log('RIGHT CORNER: ' + rightCorner1);
+    console.log('LEFT CORNER: ' + leftCorner1);
 
     const cats = await catModel
       .find({
         location: {
           $geoWithin: {
-            $box: [leftCorner, rightCorner],
+            $box: [
+              [Number(leftCorner1), Number(leftCorner2)],
+              [Number(rightCorner1), Number(rightCorner2)],
+            ],
           },
         },
       })
       .select('-__v');
+    console.log('CATS IN BOUNDING BOX: ' + cats);
     res.json(cats);
   } catch (err) {
     next(err);
