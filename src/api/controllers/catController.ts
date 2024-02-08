@@ -13,6 +13,7 @@ import {NextFunction, Request, Response} from 'express';
 import catModel from '../models/catModel';
 import {Cat} from '../../types/DBTypes';
 import CustomError from '../../classes/CustomError';
+import rectangleBounds from '../../utils/rectangleBounds';
 
 const catGet = async (
   req: Request<{id: string}>,
@@ -180,25 +181,31 @@ const catGetByBoundingBox = async (
   next: NextFunction
 ) => {
   try {
-    const {topRight, bottomLeft} = req.query;
+    const topRight = req.query.topRight;
+    const bottomLeft = req.query.bottomLeft;
     const [rightCorner1, rightCorner2] = topRight.split(',');
     const [leftCorner1, leftCorner2] = bottomLeft.split(',');
-    console.log('RIGHT CORNER: ' + rightCorner1);
-    console.log('LEFT CORNER: ' + leftCorner1);
+
+    const bounds = rectangleBounds(
+      {
+        lat: Number(rightCorner1),
+        lng: Number(rightCorner2),
+      },
+      {
+        lat: Number(leftCorner1),
+        lng: Number(leftCorner2),
+      }
+    );
 
     const cats = await catModel
       .find({
         location: {
           $geoWithin: {
-            $box: [
-              [Number(leftCorner1), Number(leftCorner2)],
-              [Number(rightCorner1), Number(rightCorner2)],
-            ],
+            $geometry: bounds,
           },
         },
       })
       .select('-__v');
-    console.log('CATS IN BOUNDING BOX: ' + cats);
     res.json(cats);
   } catch (err) {
     next(err);

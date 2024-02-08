@@ -7,6 +7,7 @@ import CustomError from './classes/CustomError';
 import jwt from 'jsonwebtoken';
 import {UserOutput, LoginUser} from './types/DBTypes';
 import userModel from './api/models/userModel';
+import {validationResult} from 'express-validator';
 
 // convert GPS coordinates to decimal format
 // for longitude, send exifData.gps.GPSLongitude, exifData.gps.GPSLongitudeRef
@@ -91,6 +92,19 @@ const makeThumbnail = async (
   }
 };
 
+const validationErrors = (req: Request, _res: Response, next: NextFunction) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const messages: string = errors
+      .array()
+      .map((error) => `${error.msg}: ${error.param}`)
+      .join(', ');
+    next(new CustomError(messages, 400));
+    return;
+  }
+  next();
+};
+
 const authenticate = async (
   req: Request,
   res: Response,
@@ -132,4 +146,11 @@ const authenticate = async (
   }
 };
 
-export {notFound, errorHandler, getCoordinates, makeThumbnail, authenticate};
+export {
+  notFound,
+  errorHandler,
+  getCoordinates,
+  makeThumbnail,
+  authenticate,
+  validationErrors,
+};
